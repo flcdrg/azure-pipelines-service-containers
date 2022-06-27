@@ -24,4 +24,4 @@ steps:
 - script: |
     network=$(docker network list --filter name=vsts_network -q)
     echo "using $network"
-    docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P yourStrong(!)Password -Q "SELECT * from sys.databases"
+    docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
