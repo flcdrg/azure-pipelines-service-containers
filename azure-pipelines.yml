@@ -1,0 +1,22 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  containers:
+    - container: mssql
+      image: mcr.microsoft.com/mssql/server:2019-latest
+      ports:
+        - 1433:1433
+      env:
+        ACCEPT_EULA: Y
+        SA_PASSWORD: yourStrong(!)Password
+
+# Service container
+services:
+  mssql: mssql
+
+steps:
+- script: docker network list
