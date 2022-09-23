@@ -1,6 +1,9 @@
 trigger:
 - main
 
+pr:
+  - main
+
 pool:
   vmImage: ubuntu-latest
 
@@ -13,15 +16,54 @@ resources:
       env:
         ACCEPT_EULA: Y
         SA_PASSWORD: yourStrong(!)Password
+    - container: my_container
+      image: ghcr.io/flcdrg/azure-pipelines-container-jobs:latest
 
-# Service container
-services:
-  mssql: mssql
+jobs:
+- job: NoJobContainer
 
-steps:
-- script: docker network list
+  # Service container
+  services:
+    mssql: mssql
 
-- script: |
-    network=$(docker network list --filter name=vsts_network -q)
-    echo "using $network"
-    docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+  steps:
+  - checkout: none
+  - script: docker network list
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+      echo "using $network"
+      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+
+# Use service container with a job container
+- job: WithJobContainer
+
+  services:
+    mssqlsvc: mssql
+
+  container: my_container
+
+  steps:
+  - checkout: none
+  
+  - task: DockerInstaller@0
+    inputs:
+      dockerVersion: 20.10.18
+
+  - script: docker network list
+    displayName: Docker network list
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+      echo "using $network"
+      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+    displayName: Run sqlcmd from inside Docker
+
+  - script: |
+      /opt/mssql-tools18/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases" -C
+    displayName: Run sqlcmd locally
+
+  # This doesn't work as it won't be on the same network
+  # - script: |
+  #     docker run --rm mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+
