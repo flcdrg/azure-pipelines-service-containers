@@ -16,6 +16,15 @@ resources:
       env:
         ACCEPT_EULA: Y
         SA_PASSWORD: yourStrong(!)Password
+
+    - container: mssql2
+      image: mcr.microsoft.com/mssql/server:2019-latest
+      options: --hostname sqlserver
+      ports:
+        - 1433
+      env:
+        ACCEPT_EULA: Y
+        SA_PASSWORD: yourStrong(!)Password
     - container: my_container
       image: ghcr.io/flcdrg/azure-pipelines-container-jobs:latest
 
@@ -24,16 +33,82 @@ jobs:
 
   # Service container
   services:
-    mssql: mssql
+    mssqlsvc: mssql
 
   steps:
   - checkout: none
   - script: docker network list
+    displayName: Docker network list
 
   - script: |
       network=$(docker network list --filter name=vsts_network -q)
       echo "using $network"
-      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+    displayName: Run sqlcmd from inside Docker
+
+  - script: |
+      sqlcmd -S localhost -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases" -C
+    displayName: Run sqlcmd locally
+
+  - script: |
+      nc -zv -w 10 host.docker.internal 1433
+      nc -zv -w 10 localhost 1433
+      nc -zv -w 10 mssqlsvc 1433
+      true
+    displayName: netcat
+    continueOnError: true
+
+- job: NoJobContainerWithRandomPort
+
+  # Service container
+  services:
+    mssqlsvc: mssql2
+
+  steps:
+  - checkout: none
+
+  - script: |
+      docker network list
+      docker ps
+    displayName: Docker network list
+
+  - script: |
+      nc -zv -w 10 host.docker.internal 1433
+      nc -zv -w 10 localhost 1433
+      nc -zv -w 10 mssqlsvc 1433
+      nc -zv -w 10 host.docker.internal $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 localhost $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 mssqlsvc $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 sqlserver 1433
+      nc -zv -w 10 sqlserver $(agent.services.mssqlsvc.ports.1433)
+      true
+    displayName: netcat
+    continueOnError: true
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 mssqlsvc 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 mssqlsvc $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 sqlserver 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 sqlserver $(agent.services.mssqlsvc.ports.1433)
+      true
+    displayName: docker netcat
+    continueOnError: true
+
+  - script: |
+      sqlcmd -S tcp:localhost,$(agent.services.mssqlsvc.ports.1433) -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases" -C
+    displayName: Run sqlcmd locally
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+      echo "using $network"
+      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+    displayName: Run sqlcmd from inside Docker
 
 # Use service container with a job container
 - job: WithJobContainer
@@ -45,12 +120,14 @@ jobs:
 
   steps:
   - checkout: none
-  
+
   - task: DockerInstaller@0
     inputs:
       dockerVersion: 20.10.18
 
-  - script: docker network list
+  - script: |
+      docker network list
+      docker ps
     displayName: Docker network list
 
   - script: |
@@ -63,7 +140,72 @@ jobs:
       /opt/mssql-tools18/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases" -C
     displayName: Run sqlcmd locally
 
+  - script: |
+      nc -zv -w 10 host.docker.internal 1433
+      nc -zv -w 10 localhost 1433
+      nc -zv -w 10 mssqlsvc 1433
+      true
+    displayName: netcat
+    continueOnError: true
+
   # This doesn't work as it won't be on the same network
   # - script: |
   #     docker run --rm mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
 
+# Use service container with a job container
+- job: WithJobContainerRandomPort
+
+  services:
+    mssqlsvc: mssql2
+
+  container: my_container
+
+  steps:
+  - checkout: none
+
+  - task: DockerInstaller@0
+    inputs:
+      dockerVersion: 20.10.18
+
+  - script: |
+      docker network list
+      docker ps
+    displayName: Docker network list
+
+  - script: |
+      nc -zv -w 10 host.docker.internal 1433
+      nc -zv -w 10 localhost 1433
+      nc -zv -w 10 mssqlsvc 1433
+      nc -zv -w 10 host.docker.internal $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 localhost $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 mssqlsvc $(agent.services.mssqlsvc.ports.1433)
+      nc -zv -w 10 sqlserver 1433
+      nc -zv -w 10 sqlserver $(agent.services.mssqlsvc.ports.1433)
+      true
+    displayName: netcat
+    continueOnError: true
+
+  - script: |
+      /opt/mssql-tools18/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases" -C
+    displayName: Run sqlcmd locally
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 mssqlsvc 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 mssqlsvc $(agent.services.mssqlsvc.ports.1433)
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 sqlserver 1433
+      docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 sqlserver $(agent.services.mssqlsvc.ports.1433)
+      true
+    displayName: docker netcat
+    continueOnError: true
+
+  - script: |
+      network=$(docker network list --filter name=vsts_network -q)
+      echo "using $network"
+      docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
+    displayName: Run sqlcmd from inside Docker
