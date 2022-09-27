@@ -41,7 +41,7 @@ jobs:
     displayName: Docker network list
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
       echo "using $network"
       docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
     displayName: Run sqlcmd from inside Docker
@@ -86,7 +86,7 @@ jobs:
     continueOnError: true
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
 
       docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal 1433
       docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost 1433
@@ -105,7 +105,7 @@ jobs:
     displayName: Run sqlcmd locally
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
       echo "using $network"
       docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
     displayName: Run sqlcmd from inside Docker
@@ -131,7 +131,7 @@ jobs:
     displayName: Docker network list
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
       echo "using $network"
       docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
     displayName: Run sqlcmd from inside Docker
@@ -190,7 +190,7 @@ jobs:
     displayName: Run sqlcmd locally
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
 
       docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 host.docker.internal 1433
       docker run --rm --network $network itsthenetwork/alpine-ncat -zv -w 10 localhost 1433
@@ -205,7 +205,7 @@ jobs:
     continueOnError: true
 
   - script: |
-      network=$(docker network list --filter name=vsts_network -q)
+      network=$AGENT_CONTAINERNETWORK
       echo "using $network"
       docker run --rm --network $network mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S mssqlsvc -U sa -P yourStrong\(!\)Password -Q "SELECT * from sys.databases"
     displayName: Run sqlcmd from inside Docker
